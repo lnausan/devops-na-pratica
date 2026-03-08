@@ -1,7 +1,7 @@
 variable "aws_region" {
   description = "Regiao AWS para provisionar os recursos"
   type        = string
-  default     = "us-east-1"
+  default     = "sa-east-1"
 }
 
 variable "project_name" {
@@ -25,7 +25,7 @@ variable "instance_type" {
 variable "ami_id" {
   description = "AMI ID para a instancia EC2 (Amazon Linux 2)"
   type        = string
-  default     = "ami-0c02fb55956c7d316"
+  default     = "ami-0fb4cf3a99aa89f72"
 }
 
 variable "key_name" {
