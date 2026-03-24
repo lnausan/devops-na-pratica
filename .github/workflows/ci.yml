@@ -1,4 +1,4 @@
-name: CI Pipeline
+name: CI/CD Pipeline
 
 on:
   push:
@@ -8,20 +8,17 @@ on:
 
 jobs:
   build-and-test:
+    name: CI - Build, Lint e Testes
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [18]
 
     steps:
       - name: Checkout do codigo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: '18'
           cache: 'npm'
 
       - name: Instalar dependencias
@@ -30,8 +27,45 @@ jobs:
       - name: Executar linting
         run: npm run lint
 
-      - name: Executar testes
-        run: npm test
+      - name: Executar testes com cobertura
+        run: npm test -- --coverage
 
       - name: Build da imagem Docker
         run: docker build -t devops-api:${{ github.sha }} .
+
+  publish-docker:
+    name: CD - Publicar imagem no Docker Hub
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+
+      - name: Login no Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build e push da imagem Docker
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/devops-na-pratica:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/devops-na-pratica:${{ github.sha }}
+
+  deploy-render:
+    name: CD - Deploy no Render.com
+    runs-on: ubuntu-latest
+    needs: publish-docker
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Disparar deploy no Render
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
+          echo "Deploy disparado com sucesso"
